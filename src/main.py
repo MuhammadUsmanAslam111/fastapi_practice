@@ -14,7 +14,6 @@ def read_root():
 @app.get("/products")
 def search_products(name: str = Query(None)):
     products = get_products()
-    print("hello")
     if name:
         # case-insensitive search
         return [p for p in products if name.lower() in p["name"].lower()]
