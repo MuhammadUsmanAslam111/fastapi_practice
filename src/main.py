@@ -1,56 +1,62 @@
 from fastapi import FastAPI, Query
-from product import get_products
+from pydantic import BaseModel, Field
+from database import engine
+import model
+from database import SessionLocal
+from sqlalchemy.orm import Session
+from fastapi import Depends
+#creating THE APP INSTANCE
 app = FastAPI()
-from pydantic import BaseModel
-class Product(BaseModel):
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Creating the database tables
+model.Base.metadata.create_all(bind=engine)
+
+#i have created two pydantic models, one for creating a user 
+# and another for responding with user data.
+#  The UserCreate model is used to validate the input data 
+
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    password: str = Field(..., min_length=6)
+class UserResponse(BaseModel):
     id: int
     name: str
-    
+    email: str
+
+    model_config = {
+        "from_attributes": True
+    }
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
-  
-@app.get("/products")
-def search_products(name: str = Query(None)):
-    products = get_products()
-    if name:
-        # case-insensitive search
-        return [p for p in products if name.lower() in p["name"].lower()]
-    return products
 
+@app.post("/users/", response_model=UserResponse)
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = model.User(
+        name=user.name,
+        email=user.email,
+        password=user.password
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+@app.get("/users/", response_model=list[UserResponse])
+def get_users(db: Session = Depends(get_db)):
+    users = db.query(model.User).all()
+    return users
+  
 @app.get("/about")
 def get_about():
     return {"message": "This is a sample FastAPI application."}
-
-@app.get("/products/{product_id}")
-def get_product_by_id(product_id: int, name: str = Query(None) ):
-    """
-    Get a product by ID.
-    Optionally filter by name (case-insensitive).
-    """
-    products = get_products()
-    filtered = [p for p in products if p["id"] == product_id]
-    
-    if name:
-        filtered = [p for p in filtered if name.lower() in p["name"].lower()]
-    
-    if not filtered:
-        return {"error": "Product not found"}
-    
-    return filtered[0]  # return single product
-@app.post("/products")
-def create_product(product: Product):
-    # In a real application, you'd save the product to a database here
-    return {"message": "Product created", "product": product.dict()}
-
-
-@app.post("/products/{product_id}/{product_name}")
-def add_product(product_id: int, product_name: str, product: Product):
-    # In a real app, you'd insert this into your database
-    return {
-        "message": "Product added",
-        "product_id": product_id,
-        "product_name": product_name,
-        "product_details": product.dict()
-    }
