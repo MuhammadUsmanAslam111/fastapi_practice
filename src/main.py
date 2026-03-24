@@ -1,6 +1,6 @@
 from apis import app as api_router
 from fastapi import FastAPI
-from database import  engine
+from database import  engine,model
 from database import model
 
 
