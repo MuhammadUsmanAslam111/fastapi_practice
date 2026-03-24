@@ -8,14 +8,6 @@ from sqlalchemy.orm import Session
 app = APIRouter()
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
